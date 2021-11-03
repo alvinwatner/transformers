@@ -72,6 +72,10 @@ class Timesteps():
         next_tokens = sorted_scores_indices[0, token_idx]
         input_ids = self.revert_input_ids
         self.revert_input_ids = None
+        print()
+        print(f"[REVERTED] to timestep {timestep} with the input_ids in the timestep {timestep} = {input_ids}")
+        print(f"And the token chosen for the next_tokens = {next_tokens} with the sorted_scores_indices = {sorted_scores_indices}")
+        print()
 
         return input_ids, next_tokens
 
@@ -93,6 +97,11 @@ class Timesteps():
         timestep = len(input_ids[0])
         if timestep not in self.timesteps_info['timesteps']:
             self.init_timestep(timestep, sorted_next_token_indices)
+            print()
+            print("=" * 10)
+            print(f"[INIT TIMESTEP] : timestep : {timestep} | sorted_next_token_indices : {sorted_next_token_indices}")
+            print("=" * 10)
+            print()
         else:
             idx = self.timesteps_info['timesteps'].index(timestep)
             self.timesteps_info['token_idx'][idx] += 1
@@ -466,6 +475,8 @@ class NoBadWordsLogitsProcessor(LogitsProcessor):
             banned_tokens_slice = []
             for banned_token_seq in self.bad_words_id_length_greater_than_1:
                 if self._tokens_match(prev_input_ids_slice, banned_token_seq[:-1]):
+                    print(f"prev_input_ids_slice = {prev_input_ids_slice} | prev_input_ids = {prev_input_ids}")
+                    print(f"banned_token_seq = {banned_token_seq} | self.bad_words_id_length_greater_than_1 = {self.bad_words_id_length_greater_than_1}")
                     banned_tokens_slice.append(banned_token_seq[-1])
 
             banned_tokens.append(banned_tokens_slice)
