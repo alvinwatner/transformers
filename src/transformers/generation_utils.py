@@ -1277,15 +1277,13 @@ class GenerationMixin:
         cur_len = input_ids.shape[-1]
 
         this_peer_finished = False  # used by synced_gpus only
-        revert = False # used by banned_words decoding
-        detected_banned_words_length_greater_than_1 = None
-        banned_words_ids = banned_words['ids']
-        epsilon = banned_words['epsilon']
 
-        timesteps = Timesteps()
-        seed = 10
-        torch.manual_seed(seed)
+        revert = False  # used by banned_words decoding
+        detected_banned_words_length_greater_than_1 = None  # used by banned_words decoding
+        banned_words_ids = banned_words['ids']  # used by banned_words decoding
+        epsilon = banned_words['epsilon']  # used by banned_words decoding
 
+        timesteps = Timesteps()  # used by banned_words decoding
 
         while True:
 
@@ -1334,22 +1332,13 @@ class GenerationMixin:
                         else (outputs.hidden_states,)
                     )
 
-
             # pre-process distribution
             next_tokens_scores = logits_processor(input_ids, next_token_logits)
 
-            # create a fake next_tokens_scores for debuggin purpose
-            next_tokens_scores = torch.rand((next_tokens_scores.shape[0],
-                                             next_tokens_scores.shape[1]))
-
-            # argmax
-            # next_tokens = torch.argmax(next_tokens_scores, dim=-1)
-
-            # argmax v2
             _, sorted_next_token_indices = torch.topk(next_tokens_scores, next_tokens_scores.shape[1])
+            # The result below is the same as argmax
             next_tokens = sorted_next_token_indices[0,0]
-            print(f"timestep : {len(input_ids[0])} | input_ids = {input_ids}")
-            print()
+
             random_uniform = torch.rand((1,))
 
             if revert and epsilon > random_uniform:
@@ -1366,50 +1355,24 @@ class GenerationMixin:
                         For e.g., banned_words = ['blue rabbits'], while the generated sequence
                         is "In the early monday, the blue sky ..."                    
                         """
-                        print()
-                        print(f"[DETECTION CANCELED] :  The next_tokens {next_tokens} not equal to the banned_words[next_index] {detected_banned_words_length_greater_than_1['ids'][next_idx]}")
-                        print(f"with the full banned_words = {detected_banned_words_length_greater_than_1['ids']}")
-                        print()
                         detected_banned_words_length_greater_than_1 = None
                     else:
                         if (detected_banned_words_length_greater_than_1['next_idx'] + 1) == \
                                 len(detected_banned_words_length_greater_than_1['ids']):
-                            print()
-                            print(
-                                f"[DETECTION FINISHED] :  The next_tokens {next_tokens} equal to the final tokens {detected_banned_words_length_greater_than_1['ids'][next_idx]}")
-                            print(f"with the full banned_words = {detected_banned_words_length_greater_than_1['ids']}")
-                            print()
                             revert = True
                             detected_banned_words_length_greater_than_1 = None
                         else:
-                            print()
-                            print(
-                                f"[DETECTION CONTINUE] :  The next_tokens {next_tokens} equal to the banned_words[next_index] {detected_banned_words_length_greater_than_1['ids'][next_idx]}")
-                            print(f"with the full banned_words = {detected_banned_words_length_greater_than_1['ids']}")
-                            print()
                             detected_banned_words_length_greater_than_1['next_idx'] += 1
 
                 else:
                     for ids in banned_words_ids:
-                        print(f"[CHECKING] next_tokens = {next_tokens} with banned_word_ids[0] = {ids[0]}")
                         if next_tokens == ids[0]:
                             if len(ids) == 1:
-                                print()
-                                print("="*10)
-                                print(f"[DETECTED] length 1 | next_tokens = {next_tokens} | ids = {ids}")
-                                print("=" * 10)
-                                print()
                                 revert = True
                             else:
                                 detected_banned_words_length_greater_than_1 = {'ids': ids,
                                                                                'next_idx': 1}
-                                print()
-                                print("=" * 10)
-                                print(f"[DETECTED] length > 1 | next_tokens = {next_tokens} | ids = {ids}")
-                                print("=" * 10)
-                                print()
                             timesteps.update(input_ids, sorted_next_token_indices)
-            print()
 
             # finished sentences should have their next token be a padding token
             if eos_token_id is not None:
