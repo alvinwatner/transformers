@@ -279,7 +279,6 @@ class BartEncoderLayer(nn.Module):
         self.fc1 = nn.Linear(self.embed_dim, config.encoder_ffn_dim)
         self.fc2 = nn.Linear(config.encoder_ffn_dim, self.embed_dim)
         self.final_layer_norm = nn.LayerNorm(self.embed_dim)
-        self.snip_project = nn.Linear(1, 2)
 
     def forward(
         self,
