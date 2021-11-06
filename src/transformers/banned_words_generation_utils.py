@@ -1,3 +1,5 @@
+import torch 
+
 class Timesteps():
     """
     This class designed for ``banned words decoding`` to manage the timestep if
