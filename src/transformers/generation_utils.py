@@ -39,8 +39,10 @@ from .generation_logits_process import (
     TemperatureLogitsWarper,
     TopKLogitsWarper,
     TopPLogitsWarper,
-    Timesteps,
 )
+
+from .banned_words_generation_utils import BannedWordsMechanism
+
 from .generation_stopping_criteria import (
     MaxLengthCriteria,
     MaxTimeCriteria,
@@ -1278,12 +1280,7 @@ class GenerationMixin:
 
         this_peer_finished = False  # used by synced_gpus only
 
-        revert = False  # used by banned_words decoding
-        detected_banned_words_length_greater_than_1 = None  # used by banned_words decoding
-        banned_words_ids = banned_words['ids']  # used by banned_words decoding
-        epsilon = banned_words['epsilon']  # used by banned_words decoding
-
-        timesteps = Timesteps()  # used by banned_words decoding
+        banned_words_mechanism = BannedWordsMechanism(banned_words)
 
         while True:
 
@@ -1335,44 +1332,20 @@ class GenerationMixin:
             # pre-process distribution
             next_tokens_scores = logits_processor(input_ids, next_token_logits)
 
-            _, sorted_next_token_indices = torch.topk(next_tokens_scores, next_tokens_scores.shape[1])
-            # The result below is the same as argmax
-            next_tokens = sorted_next_token_indices[0,0]
-
-            random_uniform = torch.rand((1,))
-
-            if revert and epsilon > random_uniform:
-                input_ids, next_tokens = timesteps.revert_timestep()
-                revert = False
+            if banned_words_mechanism():
+                # uncommon way to do argmax
+                _, sorted_next_token_indices = torch.topk(next_tokens_scores, next_tokens_scores.shape[1])
+                next_tokens = sorted_next_token_indices[0, 0]
+                is_return_value, temp_input_ids, temp_next_tokens = banned_words_mechanism.process(next_tokens,
+                                                                 sorted_next_token_indices,
+                                                                 input_ids)
+                if is_return_value:
+                    input_ids = temp_input_ids
+                    next_tokens = temp_next_tokens
+                    
             else:
-                if detected_banned_words_length_greater_than_1 is not None:
-                    next_idx = detected_banned_words_length_greater_than_1['next_idx']
-
-                    if next_tokens != detected_banned_words_length_greater_than_1['ids'][next_idx]:
-                        """
-                        If the next_tokens is not equal to the subsequent token in the banned words,
-                        we will set the detected banned_words to None. 
-                        For e.g., banned_words = ['blue rabbits'], while the generated sequence
-                        is "In the early monday, the blue sky ..."                    
-                        """
-                        detected_banned_words_length_greater_than_1 = None
-                    else:
-                        if (detected_banned_words_length_greater_than_1['next_idx'] + 1) == \
-                                len(detected_banned_words_length_greater_than_1['ids']):
-                            revert = True
-                            detected_banned_words_length_greater_than_1 = None
-                        else:
-                            detected_banned_words_length_greater_than_1['next_idx'] += 1
-
-                else:
-                    for ids in banned_words_ids:
-                        if next_tokens == ids[0]:
-                            if len(ids) == 1:
-                                revert = True
-                            else:
-                                detected_banned_words_length_greater_than_1 = {'ids': ids,
-                                                                               'next_idx': 1}
-                            timesteps.update(input_ids, sorted_next_token_indices)
+                # argmax 
+                next_tokens = torch.argmax(next_tokens_scores, dim=-1)
 
             # finished sentences should have their next token be a padding token
             if eos_token_id is not None:

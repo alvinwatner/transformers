@@ -131,3 +131,61 @@ def banned_words_gpt2_tokenizer(banned_words, tokenizer):
                                      'middle_sentence_ids' : middle_sentence_ids})
 
     return pack_of_banned_words
+    
+class BannedWordsMechanism():
+    def __init__(self, banned_words = None):
+        if banned_words is not None:
+            self.active = True
+            self.epsilon = banned_words['epsilon']
+            self.banned_words_ids = banned_words['ids']
+
+            self.revert = False
+            self.detected_banned_words_length_greater_than_1 = None
+            self.timesteps = Timesteps()
+        else:
+            self.active = False
+
+    def __call__(self):
+        return self.active
+
+    def process(self, next_tokens, sorted_next_token_indices, input_ids):
+        random_uniform = torch.rand((1,))
+        is_return_value = False
+
+        if self.revert and self.epsilon > random_uniform:
+            input_ids, next_tokens = self.timesteps.revert_timestep()
+            self.revert = False
+            is_return_value = True
+        else:
+            if self.detected_banned_words_length_greater_than_1 is not None:
+                next_idx = self.detected_banned_words_length_greater_than_1['next_idx']
+
+                if next_tokens != self.detected_banned_words_length_greater_than_1['ids'][next_idx]:
+                    """
+                    If the next_tokens is not equal to the subsequent token in the banned words,
+                    we will set the detected banned_words to None. 
+                    For e.g., banned_words = ['blue rabbits'], while the generated sequence
+                    is "In the early monday, the blue sky ..."                    
+                    """
+                    self.detected_banned_words_length_greater_than_1 = None
+                else:
+                    if (self.detected_banned_words_length_greater_than_1['next_idx'] + 1) == \
+                            len(self.detected_banned_words_length_greater_than_1['ids']):
+                                                    
+                        self.revert = True
+                        self.detected_banned_words_length_greater_than_1 = None
+                    else:
+                        self.detected_banned_words_length_greater_than_1['next_idx'] += 1
+
+            else:
+                for ids in self.banned_words_ids:
+                    if next_tokens == ids[0]:
+                        if len(ids) == 1:
+                            self.revert = True
+                        else:
+                            self.detected_banned_words_length_greater_than_1 = {'ids': ids,
+                                                                                'next_idx': 1}
+
+                        self.timesteps.update(input_ids, sorted_next_token_indices)
+
+        return is_return_value, input_ids, next_tokens
