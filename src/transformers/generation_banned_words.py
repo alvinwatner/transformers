@@ -47,11 +47,6 @@ class BannedWordsMechanism():
         necessary as the sequence about to be reverted.
         """
 
-        print()
-        print(f"[PREPARE TO REVERT] | sequence['batch_idx'] {sequence['batch_idx']}")
-        print(f"sequence = {sequence}")
-        print()
-
         # This is to undo the `next_banned_words_idx` for every sequence
         # that has index smaller than the reverted sequence
         sequence_idx = self.tracked_sequence.index(sequence)
@@ -121,7 +116,6 @@ class BannedWordsMechanism():
         """
 
         sequence = self.sequence_that_need_to_be_reverted[0]
-        print(f"[INIT REVERT] | sequence = {sequence}")
 
         batch_idx = sequence['batch_idx']
         reverted_input_ids = sequence['input_ids_when_get_detected']
@@ -157,16 +151,10 @@ class BannedWordsMechanism():
         # `input_ids_when_detection_finished` get defined, the next_token wasn't get concatenated
         #  to the input_ids yet, while the algorithm expect it has.
         if (sequence['input_ids_when_detection_finished'].shape[1] + 1) == input_ids.shape[1]:
-            print(f"len before pop = {len(self.sequence_that_need_to_be_reverted)}")
             self.sequence_that_need_to_be_reverted.pop(0)
-            print(f"len after pop = {len(self.sequence_that_need_to_be_reverted)}")
             self.is_currently_reverting_sequence = False
-            print(f"input_ids_when_detection_finished = {sequence['input_ids_when_detection_finished']}")
-            print(f"input_ids = {input_ids}")
-            print(f"[REVERTING SEQUENCE FINISHED] | timestep = {input_ids.shape[1]}")
 
             if len(self.sequence_that_need_to_be_reverted) != 0:
-                print(f"[SELF.SEQUENCE_THAT_NEED_TO_BE_REVERTED] IS NOT EMPTY!")
                 self.start_revert = True
 
         # Store all the updated information during reverting process to the sequence
@@ -185,11 +173,6 @@ class BannedWordsMechanism():
         first element of the ids in banned_words_ids.
         """
         if len(self.tracked_sequence) != 0:
-            print(f"[TRACKING]")
-            print(f"tracked_sequence")
-            print("====================")
-            print(self.tracked_sequence)
-
             stop_looping_sequences = False
             for i, sequence in enumerate(self.tracked_sequence):
 
@@ -198,14 +181,10 @@ class BannedWordsMechanism():
                 batch_idx = sequence['batch_idx']
 
                 if sequence['pause_tracking'] == True:
-                    print(
-                        f"[PAUSE TRACKING] | input_ids_when_paused : {sequence['input_ids_when_paused']} | current input_ids : {input_ids[batch_idx]}")
                     if sequence['input_ids_when_paused'].shape[0] != input_ids[batch_idx].shape[0]:
                         continue
                     else:
                         if torch.all(sequence['input_ids_when_paused'].eq(input_ids[batch_idx])):
-                            print(
-                                f"[CONTINUE] : {sequence['input_ids_when_paused']} | input_ids[batch_idx] : {input_ids[batch_idx]}")
                             sequence['pause_tracking'] = False
                             sequence['input_ids_when_paused'] = None
                         else:
@@ -219,13 +198,7 @@ class BannedWordsMechanism():
                 this sequence immediately by executing prepare_to_revert() funct.
                 """
                 for ids in banned_words_ids:
-                    if sequence['pause_tracking'] == True:
-                        print(f"THIS SHOULD NOT BE PRINTED")
-
                     if len(ids) == 1:
-
-                        print(
-                            f"[TRACKING] | [IDS == 1] | [COMPLETED] | timesteps = {input_ids.shape[1]} | next_tokens = {next_tokens[batch_idx]} | ids = {ids}")
                         self.prepare_to_revert(input_ids, sequence)
                         stop_looping_sequences = True
                         break
@@ -237,17 +210,11 @@ class BannedWordsMechanism():
                             if next_banned_word_idx == (len(ids) - 1):
                                 self.prepare_to_revert(input_ids, sequence)
                                 stop_looping_sequences = True
-                                print(
-                                    f"[TRACKING] | [IDS > 1] | [COMPLETED] | timesteps = {input_ids.shape[1]} | next_tokens = {next_tokens[batch_idx]} | ids = {ids[next_banned_word_idx]}")
                                 break
                             else:
                                 incomplete_ids += 1
 
                         else:
-                            print()
-                            print(f"DETECTED_BANNED_WORDS_IDS REMOVED | sequence = {sequence} ids = {ids}")
-                            print(f"next_tokens = {next_tokens} | input_ids = {input_ids}")
-                            print()
                             # if the next_tokens[batch_idx] doesnt match to the subsequent ids,
                             # we will remove this ids from the sequence.
                             self.tracked_sequence[i]['detected_banned_words_ids'].remove(ids)
@@ -260,16 +227,10 @@ class BannedWordsMechanism():
                     # If none of the ids has completed yet we will increment the
                     # next_banned_words_idx by one.
                     if incomplete_ids == len(banned_words_ids):
-                        print()
-                        print(f"[INCOMPLETE] | before addition = {self.tracked_sequence[i]['next_banned_words_idx']}")
                         self.tracked_sequence[i]['next_banned_words_idx'] += 1
-                        print(f"[INCOMPLETE] | after addition = {self.tracked_sequence[i]['next_banned_words_idx']}")
-                        print(f"sequence = {sequence}")
-                        print()
 
                     # If none of the ids[next_banned_word_idx] match to the next_tokens[batch_idx],
                     # we will untrack this sequence.
-                    print(f"self.tracked_sequence[i]['detected_banned_words_ids'] = {self.tracked_sequence}")
                     if len(self.tracked_sequence[i]['detected_banned_words_ids']) == 0:
                         self.untrack_sequence(sequence)
 
@@ -281,20 +242,12 @@ class BannedWordsMechanism():
         This function will check the ``next_tokens`` with the first element of
         the self.banned_words_ids.
         """
-        batch_size = input_ids.shape[1]
-        print()
-        print(f"[DETECTING]")
-        print(
-            f"len(self.untracked_sequence) = {len(self.untracked_sequence)} | self.untracked_sequence = {self.untracked_sequence}")
-        print()
 
         for ids in self.banned_words_ids:
             for sequence in self.untracked_sequence:
                 # iterate over the untracked_sequence
                 batch_idx = sequence['batch_idx']
                 if next_tokens[batch_idx] == ids[0]:
-                    print(f"[DETECTING] | [MATCHING] | next_tokens = {next_tokens} | ids = {ids}")
-                    print(f"sorted_next_token_indices_when_get_detected = {sorted_next_tokens_indices[batch_idx]}")
                     # if the next_tokens of the sequence match to the first element of the ids
                     # we store all the necessary information for tracking purpose
                     sequence['input_ids_when_get_detected'] = input_ids
@@ -331,7 +284,6 @@ class BannedWordsMechanism():
         if self.start_revert and self.epsilon > random_uniform:
             # step 1,2,3 in starbucks tissue papers
             input_ids, next_tokens = self.init_revert()
-            print(f"[START_REVERT] | timestep = {input_ids.shape[1]}")
             self.is_currently_reverting_sequence = True
             self.start_revert = False
 
@@ -343,23 +295,6 @@ class BannedWordsMechanism():
             # if the next_tokens at this timestep ever been shifted previously
             input_ids = updated_input_ids
             next_tokens = shifted_next_tokens
-
-        timestep = input_ids.shape[1]
-
-        print()
-        print()
-        print(f"[TIMESTEP {timestep}]")
-        print("=====================")
-        print(f"len(self.untracked_sequence) = {len(self.untracked_sequence)}")
-        print(f"len(self.tracked_sequence) = {len(self.tracked_sequence)}")
-        print(f"len(self.sequence_that_need_to_be_reverted) = {len(self.sequence_that_need_to_be_reverted)}")
-        print("input_ids : ")
-        print(input_ids)
-        print("=====================")
-        print("next_tokens : ")
-        print(next_tokens)
-        print()
-        print()
 
         self.tracking(next_tokens, input_ids)
 

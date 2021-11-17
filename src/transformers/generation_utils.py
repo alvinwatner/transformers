@@ -1286,9 +1286,6 @@ class GenerationMixin:
         banned_words_mechanism = BannedWordsMechanism(batch_size=batch_size,
                                                       banned_words=banned_words)
 
-        seed = 6
-        torch.manual_seed(seed)
-
         while True:
 
             if synced_gpus:
@@ -1339,24 +1336,16 @@ class GenerationMixin:
             # pre-process distribution
             next_tokens_scores = logits_processor(input_ids, next_token_logits)
 
-            # create a fake next_tokens_scores for debuggin purpose
-            next_tokens_scores = torch.rand((next_tokens_scores.shape[0],
-                                             next_tokens_scores.shape[1]))
-
             # argmax
             next_tokens = torch.argmax(next_tokens_scores, dim=-1)
-            print(f"argmax_next_tokens.shape : {next_tokens.shape}")
 
             if banned_words_mechanism():
                 # another way to do argmax
                 _, sorted_next_token_indices = torch.topk(next_tokens_scores, next_tokens_scores.shape[1])
                 next_tokens = sorted_next_token_indices[:, 0]
-                print(f"topk_next_tokens.shape : {next_tokens.shape}")
                 input_ids, next_tokens = banned_words_mechanism.process(input_ids,
                                                                  next_tokens,
                                                                  sorted_next_token_indices)
-
-            print(f"timestep : {len(input_ids[0])} | input_ids : {input_ids}")
 
             # finished sentences should have their next token be a padding token
             if eos_token_id is not None:
@@ -1804,13 +1793,9 @@ class GenerationMixin:
         beam_scores = torch.zeros((batch_size, num_beams), dtype=torch.float, device=input_ids.device)
         beam_scores[:, 1:] = -1e9
         beam_scores = beam_scores.view((batch_size * num_beams,))
-        print(f"init_beam_scores = {beam_scores}")
-        print()
 
         this_peer_finished = False  # used by synced_gpus only
         while True:
-
-            print(f"timestep : {input_ids.shape[1]} | input_ids : {input_ids}")
 
             if synced_gpus:
                 # Under synced_gpus the `forward` call must continue until all gpus complete their sequence.
