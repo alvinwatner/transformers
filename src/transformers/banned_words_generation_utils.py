@@ -87,12 +87,22 @@ def uppercase_first_letter(lowercase_words):
 
   return sentence
 
+def skip_bos_and_eos(tokenized_word_ids, tokenizer):
+  eos_token_id = tokenizer.convert_tokens_to_ids(tokenizer.eos_token)
+  bos_token_id = tokenizer.convert_tokens_to_ids(tokenizer.bos_token)
+  if bos_token_id in tokenized_word_ids:
+    tokenized_word_ids.remove(bos_token_id)
+  if eos_token_id in tokenized_word_ids:
+    tokenized_word_ids.remove(eos_token_id)
+  return tokenized_word_ids
+
 
 def banned_words_gpt2_tokenizer(banned_words, tokenizer):
     pack_of_banned_words = []
     for words in banned_words:
 
         splitted_raw_sentence = words.split(" ")
+        print(f"len(splitted_raw_sentence) = {len(splitted_raw_sentence)}")
 
         lowercase_sentence = words.lower()
         splitted_lowercase_sentence = lowercase_sentence.split(" ")
@@ -104,8 +114,9 @@ def banned_words_gpt2_tokenizer(banned_words, tokenizer):
         for e.g., ["My name is martin and I love KFC"]
         """
         front_raw_sentence_upper = uppercase_first_letter(splitted_raw_sentence)
-        front_raw_sentence_upper_ids = tokenizer(front_raw_sentence_upper).input_ids[1:-1]
-        front_raw_sentence_upper_tokens = [tokenizer.convert_ids_to_tokens(ids) for ids in front_raw_sentence_upper_ids]
+        front_raw_sentence_upper_ids = tokenizer(front_raw_sentence_upper).input_ids
+        front_raw_sentence_upper_ids = skip_bos_and_eos(front_raw_sentence_upper_ids, tokenizer)
+        # front_raw_sentence_upper_tokens = [tokenizer.convert_ids_to_tokens(ids) for ids in front_raw_sentence_upper_ids]
         # print(f"front_raw_sentence_upper_ids = {front_raw_sentence_upper_ids}")
         # print(f"front_raw_sentence_upper_tokens = {front_raw_sentence_upper_tokens}")
 
@@ -114,8 +125,9 @@ def banned_words_gpt2_tokenizer(banned_words, tokenizer):
         note : raw sentence is useful when the subsequent token has abbreviation. 
         for e.g., ["my name is martin and I love KFC"]                
         """
-        front_raw_sentence_ids = tokenizer(words).input_ids[1:-1]
-        front_raw_sentence_tokens = [tokenizer.convert_ids_to_tokens(ids) for ids in front_raw_sentence_ids]
+        front_raw_sentence_ids = tokenizer(words).input_ids
+        front_raw_sentence_ids = skip_bos_and_eos(front_raw_sentence_ids, tokenizer)
+        # front_raw_sentence_tokens = [tokenizer.convert_ids_to_tokens(ids) for ids in front_raw_sentence_ids]
         # print(f"front_raw_sentence_ids = {front_raw_sentence_ids}")
         # print(f"front_raw_sentence_tokens = {front_raw_sentence_tokens}")
 
@@ -124,8 +136,9 @@ def banned_words_gpt2_tokenizer(banned_words, tokenizer):
         (without prefix_space on the first word and with prefix_space on the rest)
         for e.g., ["my name is martin, bla bla bla."]    
         """
-        front_sentence_lower_ids = tokenizer(lowercase_sentence).input_ids[1:-1]
-        front_sentence_lower_tokens = [tokenizer.convert_ids_to_tokens(ids) for ids in front_sentence_lower_ids]
+        front_sentence_lower_ids = tokenizer(lowercase_sentence).input_ids
+        front_sentence_lower_ids = skip_bos_and_eos(front_sentence_lower_ids, tokenizer)
+        # front_sentence_lower_tokens = [tokenizer.convert_ids_to_tokens(ids) for ids in front_sentence_lower_ids]
         # print(f"lowercase_sentence = {lowercase_sentence}")
         # print(f"front_sentence_lower_ids = {front_sentence_lower_ids}")
         # print(f"front_sentence_lower_tokens = {front_sentence_lower_tokens}")
@@ -135,8 +148,9 @@ def banned_words_gpt2_tokenizer(banned_words, tokenizer):
         (without prefix_space on the first word and with prefix_space on the rest). 
         for e.g., ["My name is martin, bla bla bla."]    
         """
-        front_sentence_ids = tokenizer(title_sentence).input_ids[1:-1]
-        front_sentence_tokens = [tokenizer.convert_ids_to_tokens(ids) for ids in front_sentence_ids]
+        front_sentence_ids = tokenizer(title_sentence).input_ids
+        front_sentence_ids = skip_bos_and_eos(front_sentence_ids, tokenizer)
+        # front_sentence_tokens = [tokenizer.convert_ids_to_tokens(ids) for ids in front_sentence_ids]
         # print(f"front_sentence = {title_sentence}")
         # print(f"front_sentence_ids = {front_sentence_ids}")
         # print(f"front_sentence_tokens = {front_sentence_tokens}")
@@ -148,8 +162,9 @@ def banned_words_gpt2_tokenizer(banned_words, tokenizer):
         for e.g., ["bla bla bla bla. My name is martin and I love KFC"]
         """
         middle_raw_sentence_upper = " " + front_raw_sentence_upper
-        middle_raw_sentence_upper_ids = tokenizer(middle_raw_sentence_upper).input_ids[1:-1]
-        middle_raw_sentence_upper_tokens = [tokenizer.convert_ids_to_tokens(ids) for ids in middle_raw_sentence_upper_ids]
+        middle_raw_sentence_upper_ids = tokenizer(middle_raw_sentence_upper).input_ids
+        middle_raw_sentence_upper_ids = skip_bos_and_eos(middle_raw_sentence_upper_ids, tokenizer)
+        # middle_raw_sentence_upper_tokens = [tokenizer.convert_ids_to_tokens(ids) for ids in middle_raw_sentence_upper_ids]
         # print(f"middle_raw_sentence_upper_ids = {middle_raw_sentence_upper_ids}")
         # print(f"middle_raw_sentence_upper_tokens = {middle_raw_sentence_upper_tokens}")
 
@@ -159,8 +174,9 @@ def banned_words_gpt2_tokenizer(banned_words, tokenizer):
         for e.g., ["bla bla bla bla. my name is martin and I love KFC"] 
         """
         middle_raw_sentence = " " + words
-        middle_raw_sentence_ids = tokenizer(middle_raw_sentence).input_ids[1:-1]
-        middle_raw_sentence_tokens = [tokenizer.convert_ids_to_tokens(ids) for ids in middle_raw_sentence_ids]
+        middle_raw_sentence_ids = tokenizer(middle_raw_sentence).input_ids
+        middle_raw_sentence_ids = skip_bos_and_eos(middle_raw_sentence_ids, tokenizer)
+        # middle_raw_sentence_tokens = [tokenizer.convert_ids_to_tokens(ids) for ids in middle_raw_sentence_ids]
         # print(f"middle_raw_sentence_ids = {middle_raw_sentence_ids}")
         # print(f"middle_raw_sentence_tokens = {middle_raw_sentence_tokens}")
 
@@ -171,8 +187,9 @@ def banned_words_gpt2_tokenizer(banned_words, tokenizer):
         for e.g., ["bla bla bla bla. My name is martin"] 
         """
         middle_sentence = " " + title_sentence
-        middle_sentence_ids = tokenizer(middle_sentence).input_ids[1:-1]
-        middle_sentence_tokens = [tokenizer.convert_ids_to_tokens(ids) for ids in middle_sentence_ids]
+        middle_sentence_ids = tokenizer(middle_sentence).input_ids
+        middle_sentence_ids = skip_bos_and_eos(middle_sentence_ids, tokenizer)
+        # middle_sentence_tokens = [tokenizer.convert_ids_to_tokens(ids) for ids in middle_sentence_ids]
         # print(f"middle_sentence = {middle_sentence}")
         # print(f"middle_sentence_ids = {middle_sentence_ids}")
         # print(f"middle_sentence_tokens = {middle_sentence_tokens}")
@@ -182,8 +199,9 @@ def banned_words_gpt2_tokenizer(banned_words, tokenizer):
         for e.g., ["bla bla bla bla, my name is martin"] 
         """
         middle_sentence_lower = " " + lowercase_sentence
-        middle_sentence_lower_ids = tokenizer(middle_sentence_lower).input_ids[1:-1]
-        middle_sentence_lower_tokens = [tokenizer.convert_ids_to_tokens(ids) for ids in middle_sentence_lower_ids]
+        middle_sentence_lower_ids = tokenizer(middle_sentence_lower).input_ids
+        middle_sentence_lower_ids = skip_bos_and_eos(middle_sentence_lower_ids, tokenizer)
+        # middle_sentence_lower_tokens = [tokenizer.convert_ids_to_tokens(ids) for ids in middle_sentence_lower_ids]
         # print(f"middle_sentence = {middle_sentence_lower}")
         # print(f"middle_sentence_lower_ids = {middle_sentence_lower_ids}")
         # print(f"middle_sentence_lower_tokens = {middle_sentence_lower_tokens}")
