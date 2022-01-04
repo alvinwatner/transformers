@@ -1,3 +1,5 @@
+import torch
+
 class Timesteps():
     """
     This class designed for ``banned words decoding`` to manage the timestep if
@@ -20,6 +22,8 @@ class Timesteps():
         next_tokens = sorted_scores_indices[0, token_idx]
         input_ids = self.revert_input_ids
         self.revert_input_ids = None
+        print(f"[REVERTED] to timestep : {timestep} with next_token : {next_tokens} shifted from "
+              f"input_ids : {input_ids}")
 
         return input_ids, next_tokens
 
@@ -41,9 +45,11 @@ class Timesteps():
         timestep = len(input_ids[0])
         if timestep not in self.timesteps_info['timesteps']:
             self.init_timestep(timestep, sorted_next_token_indices)
+            print(f"[INIT TIMESTEP] : {timestep} | sorted_next_token_indices : {sorted_next_token_indices}")
         else:
             idx = self.timesteps_info['timesteps'].index(timestep)
             self.timesteps_info['token_idx'][idx] += 1
+            print(f"[NOT INIT TIMESTEP] : {self.timesteps_info['token_idx'][idx]}")
 
         self.revert_input_ids = input_ids
 
@@ -55,6 +61,18 @@ def joint_pack_of_banned_words(pack_of_banned_words):
             concatenation_of_the_entire_banned_words.append(ids)
 
     return concatenation_of_the_entire_banned_words
+
+def lowercase_first_letter(words):
+  sentence = ""
+
+  for idx, word in enumerate(words):
+    if idx == 0:
+      sentence += word.lower()
+    else:
+      word = " " + word
+      sentence += word
+
+  return sentence
 
 
 def uppercase_first_letter(lowercase_words):
@@ -74,9 +92,32 @@ def banned_words_gpt2_tokenizer(banned_words, tokenizer):
     pack_of_banned_words = []
     for words in banned_words:
 
+        splitted_raw_sentence = words.split(" ")
+
         lowercase_sentence = words.lower()
         splitted_lowercase_sentence = lowercase_sentence.split(" ")
         title_sentence = uppercase_first_letter(splitted_lowercase_sentence)
+
+        """
+        front_raw_sentence_upper = We uppercase the first word while keep the rest original
+        note : raw sentence is useful when the subsequent token has abbreviation. 
+        for e.g., ["My name is martin and I love KFC"]
+        """
+        front_raw_sentence_upper = uppercase_first_letter(splitted_raw_sentence)
+        front_raw_sentence_upper_ids = tokenizer(front_raw_sentence_upper).input_ids[1:-1]
+        front_raw_sentence_upper_tokens = [tokenizer.convert_ids_to_tokens(ids) for ids in front_raw_sentence_upper_ids]
+        # print(f"front_raw_sentence_upper_ids = {front_raw_sentence_upper_ids}")
+        # print(f"front_raw_sentence_upper_tokens = {front_raw_sentence_upper_tokens}")
+
+        """
+        front_raw_sentence = Keep everything as it is
+        note : raw sentence is useful when the subsequent token has abbreviation. 
+        for e.g., ["my name is martin and I love KFC"]                
+        """
+        front_raw_sentence_ids = tokenizer(words).input_ids[1:-1]
+        front_raw_sentence_tokens = [tokenizer.convert_ids_to_tokens(ids) for ids in front_raw_sentence_ids]
+        # print(f"front_raw_sentence_ids = {front_raw_sentence_ids}")
+        # print(f"front_raw_sentence_tokens = {front_raw_sentence_tokens}")
 
         """
         front_sentence_lower = The banned words appear at the front 
@@ -99,6 +140,30 @@ def banned_words_gpt2_tokenizer(banned_words, tokenizer):
         # print(f"front_sentence = {title_sentence}")
         # print(f"front_sentence_ids = {front_sentence_ids}")
         # print(f"front_sentence_tokens = {front_sentence_tokens}")
+
+
+        """
+        middle_raw_sentence_upper = The banned words that appear in the middle of the sentence
+        note : raw sentence is useful when the subsequent token has abbreviation. 
+        for e.g., ["bla bla bla bla. My name is martin and I love KFC"]
+        """
+        middle_raw_sentence_upper = " " + front_raw_sentence_upper
+        middle_raw_sentence_upper_ids = tokenizer(middle_raw_sentence_upper).input_ids[1:-1]
+        middle_raw_sentence_upper_tokens = [tokenizer.convert_ids_to_tokens(ids) for ids in middle_raw_sentence_upper_ids]
+        # print(f"middle_raw_sentence_upper_ids = {middle_raw_sentence_upper_ids}")
+        # print(f"middle_raw_sentence_upper_tokens = {middle_raw_sentence_upper_tokens}")
+
+        """
+        middle_raw_sentence = The banned words that appear in the middle of the sentence
+        note : raw sentence is useful when the subsequent token has abbreviation. 
+        for e.g., ["bla bla bla bla. my name is martin and I love KFC"] 
+        """
+        middle_raw_sentence = " " + words
+        middle_raw_sentence_ids = tokenizer(middle_raw_sentence).input_ids[1:-1]
+        middle_raw_sentence_tokens = [tokenizer.convert_ids_to_tokens(ids) for ids in middle_raw_sentence_ids]
+        # print(f"middle_raw_sentence_ids = {middle_raw_sentence_ids}")
+        # print(f"middle_raw_sentence_tokens = {middle_raw_sentence_tokens}")
+
 
         """
         middle_sentence = the banned words appear in the middle of the sentence with uppercase on the first word,
@@ -125,13 +190,18 @@ def banned_words_gpt2_tokenizer(banned_words, tokenizer):
         # print()
         # print()
 
-        pack_of_banned_words.append({'front_sentence_lower_ids' : front_sentence_lower_ids,
+        pack_of_banned_words.append({'front_raw_sentence_ids': front_raw_sentence_ids,
+                                     'front_raw_sentence_upper_ids': front_raw_sentence_upper_ids,
+                                     'front_sentence_lower_ids' : front_sentence_lower_ids,
                                      'front_sentence_ids' : front_sentence_ids,
+                                     'middle_raw_sentence_ids': middle_raw_sentence_ids,
+                                     'middle_raw_sentence_upper_ids': middle_raw_sentence_upper_ids,
                                      'middle_sentence_lower_ids' : middle_sentence_lower_ids,
-                                     'middle_sentence_ids' : middle_sentence_ids})
+                                     'middle_sentence_ids' : middle_sentence_ids,
+                                     })
 
     return pack_of_banned_words
-    
+
 class BannedWordsMechanism():
     def __init__(self, banned_words = None):
         if banned_words is not None:
@@ -167,25 +237,52 @@ class BannedWordsMechanism():
                     For e.g., banned_words = ['blue rabbits'], while the generated sequence
                     is "In the early monday, the blue sky ..."                    
                     """
+                    print()
+                    print(
+                        f"[DETECTION CANCELED] :  The next_tokens {next_tokens} not equal to the banned_words[next_index] {detected_banned_words_length_greater_than_1['ids'][next_idx]}")
+                    print(f"with the full banned_words = {self.detected_banned_words_length_greater_than_1['ids']}")
+                    print()
                     self.detected_banned_words_length_greater_than_1 = None
                 else:
                     if (self.detected_banned_words_length_greater_than_1['next_idx'] + 1) == \
                             len(self.detected_banned_words_length_greater_than_1['ids']):
-                                                    
+                        print()
+                        print(
+                            f"[DETECTION FINISHED] :  The next_tokens {next_tokens} equal to the final tokens {self.detected_banned_words_length_greater_than_1['ids'][next_idx]}")
+                        print(f"with the full banned_words = {self.detected_banned_words_length_greater_than_1['ids']}")
+                        print()
                         self.revert = True
                         self.detected_banned_words_length_greater_than_1 = None
                     else:
+                        print()
+                        print(
+                            f"[DETECTION CONTINUE] :  The next_tokens {next_tokens} equal to the banned_words[next_index] {self.detected_banned_words_length_greater_than_1['ids'][next_idx]}")
+                        print(f"with the full banned_words = {self.detected_banned_words_length_greater_than_1['ids']}")
+                        print()
                         self.detected_banned_words_length_greater_than_1['next_idx'] += 1
 
             else:
                 for ids in self.banned_words_ids:
-                    if next_tokens == ids[0]:
-                        if len(ids) == 1:
-                            self.revert = True
-                        else:
-                            self.detected_banned_words_length_greater_than_1 = {'ids': ids,
-                                                                                'next_idx': 1}
-
-                        self.timesteps.update(input_ids, sorted_next_token_indices)
+                    #  next_tokens.shape : (batch_size,)
+                    for next_token in next_tokens:
+                        print(f"[CHECKING] next_tokens = {next_token} with banned_word_ids[0] = {ids[0]}")
+                        if next_token == ids[0]:
+                            if len(ids) == 1:
+                                print()
+                                print("=" * 10)
+                                print(f"[DETECTED] length 1 | next_tokens = {next_token} | ids = {ids}")
+                                print("=" * 10)
+                                print()
+                                self.revert = True
+                            else:
+                                self.detected_banned_words_length_greater_than_1 = {'ids': ids,
+                                                                                    'next_idx': 1}
+                                print()
+                                print("=" * 10)
+                                print(f"[DETECTED] length > 1 | next_tokens = {next_token} | ids = {ids}")
+                                print("=" * 10)
+                                print()
+                            self.timesteps.update(input_ids, sorted_next_token_indices)
+        print()
 
         return is_return_value, input_ids, next_tokens
