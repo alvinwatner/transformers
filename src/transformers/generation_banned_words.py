@@ -1,7 +1,6 @@
 import torch
 from typing import List, Dict, Any
 
-
 class BannedWordsMechanism():
     def __init__(self, batch_size,
                  banned_words: Dict[str, Any] = None):
