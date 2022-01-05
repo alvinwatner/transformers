@@ -150,6 +150,9 @@ class BannedWordsMechanism():
         # `input_ids_when_detection_finished` get defined, the next_token wasn't get concatenated
         #  to the input_ids yet, while the algorithm expect it has.
         if (sequence['input_ids_when_detection_finished'].shape[1] + 1) == input_ids.shape[1]:
+            # add this sequence back to untracked sequence
+            self.untracked_sequence.append(sequence)
+            
             self.sequence_that_need_to_be_reverted.pop(0)
             self.is_currently_reverting_sequence = False
 
